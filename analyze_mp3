@@ -1,0 +1,139 @@
+#!/usr/bin/python2.7
+# Pass 1 mp3 to see all the tags in that file
+# Pass more than 1 mp3 to see aggregate data
+
+import struct
+import sys
+import os.path
+from mutagen.id3 import ID3
+import collections
+
+## If you want details on a stat or a tag when many MP3s are analyzed, put it here:
+DETAILS_ON_STATS = ['ID3v1 Only', '2.4.0 with v1', '2.2.0 without v1', '2.3.0 with v1']
+DETAILS_ON_TAGS = ['APIC', 'GEOB', 'POPM', 'PRIV', 'TXXX', 'USLT', 'COMM']
+
+def id3_manual_information(filename):
+	"""Takes a filename returns a dictionary of statistics gathered by directly analyzing the binary file.
+	A properly formatted ID3v2 tag will have the letters ID3 at byte 0. 
+	A properly formatted ID3v1 tag will have the letters TAG 128 bytes from the end of the file.
+
+	The dictionary contains the following keys:
+		+ 'Errors' is a list of issues found with the MP3
+		+ 'Filename' is the filename passed to the function.
+		+ 'ID3v2 Version' contains a string of '2.x.x' if the tag is properly formatted, or else None.
+		+ 'ID3v1 Present' is True if there is a properly formatted ID3v1 tag, or else False.
+		+ 'ID3 Count' is the number of times the letters ID3 appear in the MP3 file. This can be >1 since it may appear randomly.
+		+ 'ID3 First Position' is the first time the letters ID3 appear. Must be 0 for properly formated v2 tag.
+		+ 'ID3v2 Version Raw' pulls the version number from right after the first occurence of ID3. If there is no ID3, this is None.
+		+ 'TAG Count' is the number of times the letters TAG appears. Can be >1 if since it may appear randomly.
+		+ 'TAG Position From End' is the position of the last occurence of TAG in the file. Will be 128 for properly formatted v1 tag.
+	"""
+	# Define the dictionary with the appropriate keys
+	stats = {
+			'Errors': [],
+			'Filename': filename,
+			'ID3v2 Version': None,
+			'ID3v1 Present': None,
+			'ID3 Count': None,
+			'ID3 First Position': None,
+			'ID3v2 Version Raw': None,
+			'TAG Count': None,
+			'TAG Position From End': None,
+			}
+	f = open(filename, 'rb')
+	whole_mp3 = f.read()
+	f.close()
+
+	stats['ID3 Count'] = whole_mp3.count('ID3')
+	stats['ID3 First Position'] = whole_mp3.find('ID3')
+	if stats['ID3 Count'] != 0:
+		major_ver = struct.unpack('h',whole_mp3[stats['ID3 First Position'] + 3 : stats['ID3 First Position'] + 4] + '\x00')[0]
+		minor_ver = struct.unpack('h',whole_mp3[stats['ID3 First Position'] + 4 : stats['ID3 First Position'] + 5] + '\x00')[0]
+		stats['ID3v2 Version Raw'] = "2.%i.%i" % (major_ver, minor_ver)
+	else:
+		stats['Errors'].append('Letters ID3 not present in file.')
+		stats['ID3 First Position'] = None
+	stats['TAG Count'] = whole_mp3.count('TAG')
+	stats['TAG Position From End'] = len(whole_mp3) - whole_mp3.rfind('TAG')
+	if stats['TAG Count'] == 0:
+		stats['TAG Position From End'] = None
+	if stats['TAG Position From End'] == 128:
+		stats['ID3v1 Present'] = True
+	else:
+		stats['ID3v1 Present'] = False
+	if stats['ID3 First Position'] and stats['ID3 Count']:
+		stats['Errors'].append('ID3 first position is not 0')
+	if stats['ID3 First Position'] == 0:
+		stats['ID3v2 Version'] = stats['ID3v2 Version Raw']
+	return stats	
+
+def check_inconsistent_artists(filenames_list):
+	artist_list = set([ os.path.basename(filename).split('-')[0].strip() for filename in filenames_list ])
+	artist_list_with_the_prepended = set([ 'The ' + artist for artist in artist_list ])
+	return artist_list.intersection(artist_list_with_the_prepended)
+
+if __name__ == '__main__':
+	# Print aggregate statistics of the passed music files
+	if len(sys.argv) > 2:
+		agg_stats = collections.defaultdict(list)
+		agg_tags = collections.defaultdict(list)
+		for song in sys.argv[1:]:
+			mp3_info = id3_manual_information(song)
+			if mp3_info['ID3v2 Version'] is None and mp3_info['ID3v1 Present'] is True:
+				agg_stats['ID3v1 Only'].append(song)
+			elif mp3_info['ID3v2 Version'] is None and mp3_info['ID3v1 Present'] is False:
+				agg_stats['No ID3 Tag'].append(song)
+			else:
+				key = mp3_info['ID3v2 Version']
+				key += ' with v1' if mp3_info['ID3v1 Present'] else ' without v1'
+				agg_stats[key].append(song)
+			agg_stats['All Tracks'].append(song)
+			id3 = ID3(song)
+			for tag in id3.pprint().split('\n'):
+				tag_name = tag.split('=')[0]
+				# Check if bona fide tag or artifact of pprint output
+				if id3.getall(tag_name):
+					if song not in agg_tags[tag_name]:
+						agg_tags[tag_name].append(song)
+			if id3.unknown_frames:
+				agg_tags['Unknown Frames'].append(song)
+		print('\n---------------')
+		print('Music Library Stats')
+		print('---------------')
+		stat_string = list()
+		for k, v in agg_stats.items():
+			stat_string.append("{0}: {1}".format(k, len(v)))
+			if k in DETAILS_ON_STATS:
+				stat_string.extend([ "\t- {}".format(os.path.basename(song)) for song in v ])	
+		print('\n'.join(stat_string))
+		print('\nTotal Tags in Library')
+		print('---------------------')
+		tags_string = list()
+		for k, v in sorted(agg_tags.items()):
+			tags_string.append("{0}: {1}".format(k, len(v)))
+			if k in DETAILS_ON_TAGS:
+				tags_string.extend([ "\t- {}".format(os.path.basename(song)) for song in v ])
+		print('\n'.join(tags_string))
+
+		# This doesn't work in the beets directory structure.
+		# inconsistent_artists = check_inconsistent_artists(sys.argv[1:])
+		# if inconsistent_artists:
+		#	print('\nInconsistently Named Artists')
+		#	print('------------------------------')
+		#	print('\n'.join(inconsistent_artists))
+		#	print('\n')
+
+
+	# Print the stats of the mp3 if only one song is passed
+	if len(sys.argv) == 2:
+		mp3_info = id3_manual_information(sys.argv[1])
+		print('\n-------------')
+		print('Filename: {0}'.format(os.path.basename(mp3_info['Filename'])))
+		print('-------------')
+		print('ID3v2 Version: {0}'.format(mp3_info['ID3v2 Version']))
+		print('ID3v1 Present: {0}'.format(mp3_info['ID3v1 Present']))
+		print('\nTags:')
+		id3 = ID3(sys.argv[1])
+		print(id3.pprint())
+		if id3.unknown_frames:
+			print('\nThere are UNKNOWN FRAMES in this track mutagen cannot identify.\n')

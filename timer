@@ -1,0 +1,26 @@
+#!/usr/bin/python3
+
+import time
+import sys
+import os
+
+start_time = sys.argv[1].split(':')
+if len(start_time) == 1:
+	start_time = [0] + start_time
+hour, minute = map(int,start_time)
+
+for h in range(hour, -1, -1):
+	for i in range(minute-1, -1, -1):
+		true_minute_start = time.time()
+		for j in range(59, -1, -1):
+			true_second_start = time.time()
+			# if time.time() >= true_minute_start + 59.99: continue
+			for k in range(9, -1, -1):
+				#if time.time() >= true_second_start + 0.99: continue
+				sys.stdout.write("\r{0:02.0f}:{1:02.0f}:{2:02.0f}.{3}\t".format(h, i, j, k))
+				sys.stdout.flush()
+				time.sleep(0.1)
+	minute = 60
+		
+os.system("mpc -q stop")
+os.system("aplay -q ~/lib/effects/auto_success.wav")

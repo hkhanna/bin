@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+
+import soco
+import click
+import time
+
+speakers = soco.discover();
+computer_speaker = next((s for s in speakers if s.player_name == 'Computer'));
+
+
+def get_primary_speaker():
+    group = computer_speaker.group
+    if len(group.members) == 1:
+        return computer_speaker
+    elif group.coordinator == computer_speaker:
+        return computer_speaker
+    elif group.coordinator != computer_speaker:
+        return group.coordinator
+
+
+@click.group()
+def cli():
+    pass
+
+
+@cli.command()
+def linein():
+    """Have only the computer speaker play the line in"""
+    group = computer_speaker.group
+    # If computer_speaker is on its own
+    if len(group.members) == 1:
+        computer_speaker.switch_to_line_in()
+    # If computer_speaker is grouped and computer_speaker is the coordinator
+    elif group.coordinator == computer_speaker:
+        group.coordinator.stop()
+        for speaker in group.members:
+            # TODO: This is for when speakers are stereo-paired
+            if speaker.ip_address in speaker_ips.values():
+                speaker.unjoin()
+        computer_speaker.switch_to_line_in()
+    # If computer speaker is grouped and not the coordinator
+    elif group.coordinator != computer_speaker:
+        group.coordinator.stop()
+        computer_speaker.unjoin()
+        computer_speaker.switch_to_line_in()
+    else:
+        raise RuntimeError("this should not have happened")
+    computer_speaker.volume = 50
+    computer_speaker.play()
+
+""" TODO
+@cli.command()
+def all_linein():
+#    Have all speakers play the line in
+    group = computer_speaker.group
+    # First make sure computer_speaker is the master
+    if group.coordinator != computer_speaker:
+        computer_speaker.unjoin()
+        group = computer_speaker.group
+    if len(group.members) != len(speakers):
+        for s in speakers:
+            if s.group.coordinator != computer_speaker:
+                s.join(computer_speaker)
+    time.sleep(1)
+    computer_speaker.switch_to_line_in()
+    computer_speaker.volume = 70
+    computer_speaker.play()
+
+
+@cli.command()
+def pfq():
+    primary_speaker = get_primary_speaker()
+    import random
+    computer_speaker.volume=50
+    primary_speaker.play_from_queue(random.randrange(0, 899))
+"""
+
+@cli.command()
+def toggle():
+    primary_speaker = get_primary_speaker()
+    state = primary_speaker.get_current_transport_info()['current_transport_state']
+    if state == 'PLAYING':
+        primary_speaker.pause()
+    elif state == 'PAUSED_PLAYBACK':
+        primary_speaker.play()
+    elif state == 'STOPPED':
+        import sys
+        sys.argv.pop(1)
+        pfq()
+
+
+@cli.command()
+def next():
+    primary_speaker = get_primary_speaker()
+    primary_speaker.next()
+
+
+@cli.command()
+def prev():
+    primary_speaker = get_primary_speaker()
+    primary_speaker.previous()
+
+
+@cli.command()
+@click.argument('newvol', nargs=1)
+def v(newvol):
+    newvol = int(newvol)
+    if newvol > 100:
+        newvol = 100
+    computer_speaker.volume = newvol
+
+
+@cli.command()
+@click.argument('newvol', nargs=1)
+def all_v(newvol):
+    newvol = int(newvol)
+    if newvol > 100:
+        newvol = 100
+    for s in speakers:
+        s.volume = newvol
+
+
+@cli.command()
+def random():
+    primary_speaker = get_primary_speaker()
+    if primary_speaker.play_mode == 'NORMAL':
+        primary_speaker.play_mode = 'SHUFFLE_NOREPEAT'
+    elif primary_speaker.play_mode == 'SHUFFLE_NOREPEAT':
+        primary_speaker.play_mode = 'NORMAL'
+    elif primary_speaker.play_mode == 'REPEAT_ALL':
+        primary_speaker.play_mode = 'SHUFFLE'
+    elif primary_speaker.play_mode == 'SHUFFLE':
+        primary_speaker.play_mode = 'REPEAT_ALL'
+
+cli()
+    
+    
+    

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+
+tmux has-session -t primary
+if [ $? != 0 ]
+then
+    tmux new-session -s primary -n dev -d
+fi
+tmux attach -t primary

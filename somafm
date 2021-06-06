@@ -1,0 +1,3 @@
+#!/bin/bash
+
+echo "Select a station to listen to:";select station in "Doomed" "groovesalad" "Lush" "folkfwd" "Suburbs of Goa" "Secret Agent" "Drone Zone" "Space Station" "cliqhop idm" "Digitalis" "Sonic Universe" "Boot Liquor" "Covers" "illstreet" "indie pop rocks" "PopTron" "tags" "Beat Bender" "Mission Control";do station=$(echo -n "$station"|tr '[:upper:]' '[:lower:]'|sed 's/ //g');break;done; mpg123 -l 1 -@ http://somafm.com/${station}.pls;

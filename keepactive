@@ -1,0 +1,11 @@
+while true
+do
+xdotool mousemove 1500 400
+sleep 5
+xdotool click 1
+sleep 5
+xdotool mousemove 1500 900
+sleep 5
+xdotool click 1
+sleep 5
+done

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [[ "$1" == "mount" ]]; then
+	encfs --idle=30 ~/.enc-crypt ~/enc
+
+elif [[ "$1" == "unmount" || "$1" == "umount" ]]; then
+	fusermount -u ~/enc
+
+else
+	echo "Usage: enc {mount|umount}" 
+fi

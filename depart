@@ -1,0 +1,23 @@
+#!/bin/bash
+# Temporary Script until alarme is done
+# Usage: depart <minutes until you leave. must be >=7>
+
+[ -z "$1" ] && echo "Usage: depart <minutes until you leave, must be >= 7" && exit 1
+
+if [ "$1" -lt 7 ]; then
+	echo "Usage: depart <minutes until you leave, must be >= 7"
+	exit 1
+fi
+
+wait_minutes=`expr "$1" - 7`
+wait_seconds=23
+
+sleep ${wait_minutes}m ${wait_seconds}s
+mpc -q clear
+mpc -q random off
+mpc -q repeat off
+mpc -q load depart
+mpc -q play
+sleep 6m 38s
+mpc -q clear
+mpc -q load all

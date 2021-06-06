@@ -1,0 +1,4 @@
+mpc clear
+mpc load all
+
+mpc play $(mpc playlist | grep -i -n "$1" | cut -f1 -d: | head -n 1)
