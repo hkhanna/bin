@@ -1,0 +1,3 @@
+source ~/dev/venvs/mistbat/bin/activate
+XDG_CONFIG_HOME=/mnt/nasx/harry/mistbat/config XDG_DATA_HOME=/mnt/nasx/harry/mistbat/data python3 ~/dev/mistbat/mistbat.py "$@"
+deactivate
